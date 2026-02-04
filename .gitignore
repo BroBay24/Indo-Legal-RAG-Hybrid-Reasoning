@@ -1,0 +1,21 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Environment Variables (PENTING: Jangan upload API Key!)
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Data & Models (Terlalu besar untuk GitHub gratis)
+models/
+data/indices/
+data/processed/
+*.gguf
+
+# IDE Settings
+.vscode/
+.idea/
