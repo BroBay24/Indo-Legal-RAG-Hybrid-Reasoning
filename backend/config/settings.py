@@ -34,10 +34,10 @@ EMBEDDING_DIMENSION = 1024  # BGE-M3 dimension, sesuaikan jika ganti model
 
 # ==================== LLM SETTINGS ====================
 LLM_MODEL_PATH = str(MODELS_DIR / "llama-3-indo.gguf")
-LLM_CONTEXT_LENGTH = 4096  # n_ctx
-LLM_GPU_LAYERS = 0  # 0 untuk CPU only, -1 untuk semua layer di GPU
-LLM_MAX_TOKENS = 800  # Dinaikkan dari 512 ke 800 untuk jawaban lebih lengkap
-LLM_TEMPERATURE = 0.7
+LLM_CONTEXT_LENGTH = 2048  # Dikurangi dari 4096 untuk efisiensi CPU
+LLM_GPU_LAYERS = 0  # CPU only
+LLM_MAX_TOKENS = 400  # Dikurangi dari 800 untuk respons lebih cepat
+LLM_TEMPERATURE = 0.5
 LLM_TOP_P = 0.9
 
 # Hugging Face API (opsional, untuk model cloud)

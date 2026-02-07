@@ -12,12 +12,12 @@ import { MessageInput } from "@/components/ui/message-input"
 import { PromptSuggestions } from "@/components/ui/prompt-suggestions"
 import { ThemeToggle } from "@/components/theme-toggle"
 
-// Hardcode untuk sementara - ganti dengan IP server Anda
-const BACKEND_URL = "http://34.34.217.123:8000"
+// Gunakan proxy Next.js jika tersedia, atau direct URL dari environment
+const BACKEND_URL = "/api/backend"
 
 // Log untuk debugging
 if (typeof window !== "undefined") {
-  console.log("Backend URL:", BACKEND_URL)
+  console.log("Backend Proxy URL:", BACKEND_URL)
 }
 
 const EXAMPLE_PROMPTS = [

@@ -4,9 +4,9 @@
   "description": "Frontend Chatbot RAG Hukum Indonesia",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbo -H 0.0.0.0",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0",
     "lint": "next lint"
   },
   "dependencies": {

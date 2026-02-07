@@ -97,9 +97,11 @@ class RAGPipeline:
         # Reranker
         self.reranker = Reranker()
         
-        # LLM
+        # LLM - Load at startup (not lazy loading)
         self.llm = None
         self._llm_loaded = False
+        logger.info("[INFO] Loading LLM at startup...")
+        self._ensure_llm_loaded()
         
         # Prompt template
         self.prompt_template = get_prompt_template(style="simple", language="id")
@@ -108,7 +110,7 @@ class RAGPipeline:
         if auto_load_index:
             self._try_load_index()
         
-        logger.info("[OK] RAG Pipeline initialized")
+        logger.info("[OK] RAG Pipeline initialized (LLM ready)")
     
     def _try_load_index(self):
         """Try to load existing BM25 index."""
@@ -224,6 +226,32 @@ class RAGPipeline:
         # Ensure LLM is loaded
         self._ensure_llm_loaded()
         
+        # 0. CEK WARMUP / GREETING (Fast Path)
+        # Bypass retrieval untuk query pendek/sapaan agar tidak terjebak reranking context
+        lower_q = question.lower().strip()
+        warmup_keywords = ["tes", "test", "halo", "hi", "pemanasan", "cek", "selamat", "pagi", "siang", "sore", "malam", "coba", "assalamualaikum", "ping"]
+        is_warmup = any(k in lower_q for k in warmup_keywords) and len(question.split()) < 5
+        
+        if is_warmup:
+             logger.info("[WARMUP] Detected warm-up query (Fast Path), bypassing retrieval...")
+             prompt = f"""Anda adalah Asisten Hukum AI yang sopan. 
+User menyapa atau melakukan tes. Jawablah dengan singkat, ramah, dan profesional.
+Nyatakan bahwa sistem "RAG Hukum Indonesia" aktif dan siap menganalisis dokumen.
+
+User: {question}
+Asisten:"""
+             try:
+                 answer = self.llm.generate(prompt, max_tokens=150, temperature=0.7)
+                 return RAGResponse(
+                    answer=answer,
+                    sources=[],
+                    context="",
+                    query=question,
+                    retrieval_results=[]
+                 )
+             except Exception as e:
+                 logger.error(f"Warmup generation failed: {e}")
+
         # 1. Retrieve relevant documents
         logger.info("[1] Retrieving documents...")
         results = self.retriever.retrieve(question, top_k=top_k * 2) # Ambil 2x kandidat untuk rerank
@@ -291,7 +319,7 @@ class RAGPipeline:
         # 3. Generate answer
         logger.info("[2] Generating answer...")
         
-        # Jika context kosong (off-topic atau tidak ada hasil), berikan respons standar
+        # Jika context kosong (off-topic atau tidak ada hasil)
         if not context or len(context.strip()) == 0:
             logger.warning("[EMPTY CONTEXT] No relevant context found for query")
             return RAGResponse(
