@@ -21,10 +21,10 @@ if (typeof window !== "undefined") {
 }
 
 const EXAMPLE_PROMPTS = [
-  "Jelaskan pertimbangan hukum dalam putusan kasasi",
-  "Apa dasar hukum pembatalan jual beli tanah?",
-  "Bagaimana prosedur pengajuan kasasi?",
-  "Jelaskan tentang wanprestasi dalam hukum perdata",
+  "Dalam perkara Nomor 690/Pdt.G/2024/PN Jkt.Utr, pasal berapa saja dalam KUHPerdata yang digunakan Penggugat sebagai dasar hukum menuntut ganti rugi dan bunga? Jelaskan rincian tuntutan ganti rugi 10% yang diajukan",
+  "Buatkan ringkasan duduk perkara dari Putusan Kasasi Nomor 814 K/Pdt/2019. Siapa saja pihak yang bersengketa terkait tanah di Dusun Peperek, Lombok Tengah ini, dan apa alasan Mahkamah Agung dalam pertimbangannya?",
+  "Berdasarkan Putusan Nomor 690/Pdt.G/2024/PN Jkt.Utr, jelaskan kronologi terjadinya wanprestasi antara PT. The Univenus dan PT. Pherissa Bangkit Bersama. Berapa total tagihan yang belum dibayarkan dan apa bukti-bukti surat yang diajukan oleh Penggugat?",
+  "Bagaimana status kepemilikan tanah pipil nomor 345 yang menjadi objek sengketa dalam Putusan Nomor 814 K/Pdt/2019? Jelaskan batas-batas tanah tersebut sebagaimana disebutkan dalam amar putusan pengadilan tingkat pertama yang dikutip dalam putusan iniJelaskan tentang wanprestasi dalam hukum perdata",
 ]
 
 export function ChatInterface() {
