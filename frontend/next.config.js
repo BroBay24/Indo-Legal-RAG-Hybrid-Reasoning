@@ -2,6 +2,15 @@
 const nextConfig = {
   reactStrictMode: true,
   
+  // Extend server timeout for long-running LLM requests
+  experimental: {
+    proxyTimeout: 300000, // 5 menit
+  },
+  
+  httpAgentOptions: {
+    keepAlive: true,
+  },
+  
   // Proxy rewrites untuk development
   async rewrites() {
     return [

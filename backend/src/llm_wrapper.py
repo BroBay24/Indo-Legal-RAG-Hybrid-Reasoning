@@ -49,11 +49,13 @@ class LocalLLM(BaseLLM):
         model_path: str = None,
         n_ctx: int = None,
         n_gpu_layers: int = None,
+        n_threads: int = None,
         verbose: bool = False
     ):
         self.model_path = model_path or settings.LLM_MODEL_PATH
         self.n_ctx = n_ctx or settings.LLM_CONTEXT_LENGTH
         self.n_gpu_layers = n_gpu_layers if n_gpu_layers is not None else settings.LLM_GPU_LAYERS
+        self.n_threads = n_threads or getattr(settings, 'LLM_N_THREADS', 8)
         self.verbose = verbose
         
         self.llm = None
@@ -70,10 +72,11 @@ class LocalLLM(BaseLLM):
                 model_path=self.model_path,
                 n_ctx=self.n_ctx,
                 n_gpu_layers=self.n_gpu_layers,
+                n_threads=self.n_threads,
                 verbose=self.verbose
             )
             
-            logger.info("   [OK] Model berhasil dimuat")
+            logger.info(f"   [OK] Model berhasil dimuat (threads={self.n_threads}, ctx={self.n_ctx})")
             
         except FileNotFoundError:
             logger.error(f"   [ERROR] Model tidak ditemukan: {self.model_path}")

@@ -1,222 +1,197 @@
-# RAG Pipeline Hukum Indonesia 🇮🇩⚖️
+# Indo Legal RAG (Sistem Tanya Jawab Hukum Indonesia)
 
-Pipeline Retrieval-Augmented Generation (RAG) untuk dokumen hukum Indonesia dengan **Hybrid Retriever** (BM25 + Pinecone semantic search) dan Reciprocal Rank Fusion (RRF).
+Sistem retrieval-augmented generation (RAG) yang dirancang khusus untuk domain hukum Indonesia. Sistem ini menggabungkan pencarian dokumen hibrida (keyword + semantik) dengan kemampuan penalaran LLM Llama-3 untuk menganalisis putusan pengadilan dan memberikan opini hukum yang argumentatif.
 
-## 🏗️ Arsitektur
+## 1. Arsitektur Pipeline
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        USER QUERY                                │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     HYBRID RETRIEVER                            │
-│  ┌─────────────────┐            ┌─────────────────────────┐    │
-│  │   BM25 (Lokal)  │            │  Pinecone (Cloud)       │    │
-│  │   - Exact Match │            │  - Semantic Search      │    │
-│  │   - Pasal/Nomor │            │  - BGE-M3 Embeddings    │    │
-│  └────────┬────────┘            └───────────┬─────────────┘    │
-│           │                                  │                  │
-│           └──────────┬───────────────────────┘                  │
-│                      │                                          │
-│                      ▼                                          │
-│           ┌──────────────────────┐                             │
-│           │  RRF Fusion          │                             │
-│           │  (Rank Aggregation)  │                             │
-│           └──────────────────────┘                             │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     CONTEXT BUILDER                             │
-│         Top-K chunks + Metadata + Sources                       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                  LLM (Llama-3 Indo GGUF)                        │
-│         Legal Prompt Template → Answer Generation               │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     RESPONSE                                    │
-│         Jawaban + Sumber Dokumen                                │
-└─────────────────────────────────────────────────────────────────┘
-```
+Pipeline RAG ini bekerja dalam beberapa tahapan:
 
-## 📁 Struktur Proyek
+1.  **Ingestion & Chunking**: Dokumen hukum (PDF Putusan) diekstrak teksnya dan dipecah menjadi *chunks* (potongan teks) dengan ukuran optimal untuk menjaga konteks hukum.
+2.  **Hybrid Retrieval**:
+    *   **Keyword Search (BM25)**: Menangkap kata kunci spesifik (misal: "Pasal 1365", "Wanprestasi").
+    *   **Semantic Search (Dense Retrieval)**: Menangkap makna dan konsep hukum yang mungkin tidak menggunakan kata kunci yang sama persis (menggunakan `BAAI/bge-m3`).
+3.  **Reranking**: Kandidat dokumen dari kedua metode pencarian digabungkan dan diurutkan ulang (reranked) menggunakan model Cross-Encoder (`BAAI/bge-reranker-v2-m3`) untuk memastikan dokumen paling relevan berada di urutan teratas.
+4.  **Context Assembly**: Potongan dokumen terpilih disusun menjadi konteks yang bersih.
+5.  **Legal Reasoning & Generation**: Model Llama-3 (versi `llama-3-indo.gguf`) menerima pertanyaan user + konteks dokumen, lalu menghasilkan jawaban dengan format opini hukum yang profesional.
 
-```
-proyekrag/
-├── backend/
-│   ├── config/
-│   │   ├── __init__.py
-│   │   └── settings.py          # Konfigurasi utama
-│   ├── src/
-│   │   ├── __init__.py
-│   │   ├── document_loader.py   # PDF loader
-│   │   ├── legal_preprocessor.py # Normalisasi teks hukum
-│   │   ├── chunker.py           # Text chunking dengan overlap
-│   │   ├── embeddings.py        # BGE embedding model
-│   │   ├── bm25_indexer.py      # BM25 index lokal
-│   │   ├── pinecone_indexer.py  # Pinecone vector store
-│   │   ├── hybrid_retriever.py  # Hybrid search + RRF
-│   │   ├── llm_wrapper.py       # LLM wrapper (local/cloud)
-│   │   ├── legal_prompts.py     # Prompt templates
-│   │   └── rag_pipeline.py      # Orkestrasi pipeline
-│   ├── main.py                  # FastAPI application
-│   ├── run.py                   # CLI runner
-│   └── requirements.txt
-├── data/
-│   ├── *.pdf                    # Dokumen PDF sumber
-│   ├── processed/               # Metadata chunks
-│   └── indices/                 # BM25 index files
-├── models/
-│   └── llama-3-indo.gguf        # Model LLM lokal
-└── frontend/                    # (Coming soon)
-```
+---
 
-## 🚀 Quick Start
+## 2. Tech Stack
 
-### 1. Setup Environment
+### Frontend
+-   **Framework**: Next.js 14.2 (App Router)
+-   **Language**: TypeScript
+-   **Styling**: Tailwind CSS + Shadcn/UI (Radix Primitives)
+-   **Animation**: Framer Motion
+-   **State Management**: React Hooks
 
-```bash
-cd proyekrag/backend
+### Backend
+-   **Framework**: FastAPI (Python 3.10+)
+-   **LLM Engine**: `llama-cpp-python` (CPU Optimized)
+-   **Vector Search**: Pinecone 
+-   **Search Algorithms**: Rank-BM25, Sentence-Transformers (PyTorch)
+-   **Orchestration**: LangChain (untuk text splitting dan utilities)
 
-# Buat virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# atau: venv\Scripts\activate  # Windows
+### Infrastruktur & Deployment
+-   **Server**: Google Cloud Platform (VIrtual Machine)
+-   **OS**: Linux (Ubuntu)
+-   **Process Manager**: PM2 (Production Process Management)
+-   **Reverse Proxy**: Next.js Rewrite (Proxy ke Backend)
 
-# Install dependencies
-pip install -r requirements.txt
-```
+---
 
-### 2. Konfigurasi
+## 3. Cara Instalasi (Installation)
 
-Copy `.env.example` ke `.env` dan sesuaikan:
+### Prasyarat
+-   Python 3.10 atau lebih baru
+-   Node.js v18+ dan npm
+-   Git
+
+### Setup Backend
+
+1.  Masuk ke folder backend:
+    ```bash
+    cd backend
+    ```
+
+2.  Buat virtual environment:
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate  # Untuk Linux/Mac
+    # venv\Scripts\activate   # Untuk Windows
+    ```
+
+3.  Install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4.  Download Model:
+    Pastikan file model `.gguf` (misal `llama-3-indo.gguf`) diletakkan di folder `models/`.
+
+### Setup Frontend
+
+1.  Masuk ke folder frontend:
+    ```bash
+    cd frontend
+    ```
+
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+
+### Konfigurasi Environment (.env)
+
+Buat file `.env` di root folder proyek (sejajar dengan folder `backend` dan `frontend`):
 
 ```bash
-cp ../.env.example ../.env
-```
-
-Edit `.env`:
-```env
-PINECONE_API_KEY=your_pinecone_api_key
+# === Konfigurasi Backend ===
+# Vector Database (Opsional jika pakai mode lokal penuh)
+PINECONE_API_KEY=your_key_here
 PINECONE_INDEX_NAME=hukum-rag
+PINECONE_ENVIRONMENT=us-east-1
+
+# Embedding
 EMBEDDING_MODEL_NAME=BAAI/bge-m3
+
+# API Settings
+API_HOST=127.0.0.1
+API_PORT=8000
+DEBUG_MODE=True
+LOG_LEVEL=INFO
+
+# === Konfigurasi Frontend (di frontend/.env.local) ===
+# Letakkan di file terpisah: frontend/.env.local
+NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:8000
 ```
 
-### 3. Indexing Dokumen
+> **PENTING**: Pastikan `API_HOST=127.0.0.1` demi alasan keamanan agar backend tidak terekspos langsung ke internet.
 
+---
+
+## 4. Cara Menjalankan (Deployment)
+
+Untuk production, disarankan menggunakan **PM2** untuk menjalankan backend dan frontend secara bersamaan.
+
+### Menggunakan PM2 (Recommended)
+
+Kami telah menyediakan file `ecosystem.config.js`.
+
+1.  Start semua service:
+    ```bash
+    pm2 start ecosystem.config.js
+    ```
+
+2.  Cek status log:
+    ```bash
+    pm2 logs
+    ```
+
+3.  Restart services:
+    ```bash
+    pm2 restart all         # Restart semua
+    pm2 restart rag-backend # Restart service backend saja
+    ```
+
+### Menjalankan Manual (Development)
+
+**Terminal 1 (Backend):**
 ```bash
-# Via CLI
-python run.py index
-
-# Atau tanpa Pinecone (BM25 only)
-python run.py index --no-pinecone
+cd backend
+source venv/bin/activate
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### 4. Jalankan Server
-
+**Terminal 2 (Frontend):**
 ```bash
-# Via CLI
-python run.py serve
-
-# Atau langsung
-python main.py
-
-# Dengan reload untuk development
-python run.py serve --reload
+cd frontend
+npm run dev
 ```
 
-Server akan berjalan di `http://localhost:8000`
+---
 
-### 5. Test Query
+## 5. Dokumentasi API
 
-```bash
-# Via CLI
-python run.py query "Apa putusan dalam kasus ini?"
+Backend mengekspos endpoint dokumentasi interaktif yang disediakan oleh FastAPI.
 
-# Interactive chat
-python run.py chat
+1.  Pastikan backend berjalan.
+2.  Buka browser akses: `http://localhost:8000/docs` (Swagger UI).
 
-# Via API
-curl -X POST http://localhost:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"pertanyaan": "Apa putusan dalam kasus ini?"}'
-```
+### Endpoint Utama
 
-## 🔌 API Endpoints
+*   `POST /chat`
+    *   **Body**:
+        ```json
+        {
+          "pertanyaan": "Bagaimana kedudukan ahli waris...",
+          "top_k": 5,
+          "max_tokens": 1024,
+          "temperature": 0.5
+        }
+        ```
+    *   **Response**: JSON berisi jawaban, sumber dokumen, dan metadata.
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Health check |
-| `/health` | GET | Detailed health status |
-| `/chat` | POST | Chat dengan RAG |
-| `/chat-stream` | POST | Streaming chat |
-| `/chat-basic` | POST | Chat tanpa RAG |
-| `/index` | POST | Index dokumen |
-| `/stats` | GET | Pipeline statistics |
-| `/search` | GET | Search only (debug) |
-| `/clear-index` | POST | Clear semua index |
+---
 
-### Contoh Request
+## 6. Troubleshooting
 
-```json
-POST /chat
-{
-  "pertanyaan": "Siapa penggugat dalam kasus ini?",
-  "top_k": 5,
-  "max_tokens": 512,
-  "temperature": 0.7,
-  "include_context": true
-}
-```
+### 1. Error `socket hang up` / `fetch failed` di Frontend
+**Penyebab:** Next.js Edge Runtime memiliki batas timeout pendek, atau Backend belum selesai loading model saat Frontend mencoba connect.
+**Solusi:**
+- Pastikan `/app/api/chat/route.ts` menggunakan `runtime = 'nodejs'` (bukan 'edge').
+- Tunggu sekitar 40-60 detik setelah restart backend sebelum mencoba chat pertama kali.
 
-### Contoh Response
+### 2. Backend `WARNING: Invalid HTTP request received`
+**Penyebab:** Ada bot/scanner eksternal mencoba akses port 8000.
+**Solusi:** Pastikan `API_HOST` di `.env` diset ke `127.0.0.1`. Ini mencegah akses langsung dari luar server (hanya frontend lokal yang bisa akses).
 
-```json
-{
-  "jawaban": "Berdasarkan dokumen, penggugat dalam kasus ini adalah...",
-  "sumber": [
-    {
-      "source": "putusan_690_pdt.g_2024.pdf",
-      "page": 1,
-      "doc_type": "putusan",
-      "score": 0.85
-    }
-  ],
-  "konteks": "[Sumber 1: ...]",
-  "pertanyaan": "Siapa penggugat dalam kasus ini?"
-}
-```
+### 3. Model Loading Lama / Timeout
+**Penyebab:** Model GGUF besar dan berjalan di CPU.
+**Solusi:**
+- Sabar, inisialisasi awal bisa memakan waktu 1-2 menit.
+- Periksa log backend untuk memantau progress: `pm2 logs rag-backend`.
 
-## ⚙️ Konfigurasi
-
-Semua konfigurasi ada di `config/settings.py`:
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `CHUNK_SIZE` | 1000 | Ukuran chunk |
-| `CHUNK_OVERLAP` | 200 | Overlap antar chunk |
-| `BM25_TOP_K` | 10 | Top-K BM25 |
-| `SEMANTIC_TOP_K` | 10 | Top-K Pinecone |
-| `FINAL_TOP_K` | 5 | Final results |
-| `FUSION_METHOD` | "rrf" | rrf/weighted/interleave |
-| `RRF_K` | 60 | RRF constant |
-| `LLM_MAX_TOKENS` | 512 | Max LLM tokens |
-| `LLM_TEMPERATURE` | 0.7 | LLM temperature |
-
-## 🧠 Model
-
-- **Embedding**: `BAAI/bge-m3` (atau `paraphrase-multilingual-MiniLM-L12-v2`)
-- **LLM**: Llama-3 Indo (GGUF format)
-- **Vector Store**: Pinecone (cloud)
-- **Lexical Search**: BM25Okapi (lokal)
-
-## 📝 License
-
-MIT License
+### 4. Output LLM Duplicate / Aneh
+**Penyebab:** Prompt template memiliki token spesial ganda (misal `<|begin_of_text|>`).
+**Solusi:** Hapus token duplikat di `backend/src/legal_prompts.py` (sudah diperbaiki di versi terbaru).

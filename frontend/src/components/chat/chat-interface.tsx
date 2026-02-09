@@ -13,7 +13,7 @@ import { PromptSuggestions } from "@/components/ui/prompt-suggestions"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 // Gunakan proxy Next.js jika tersedia, atau direct URL dari environment
-const BACKEND_URL = "/api/backend"
+const BACKEND_URL = "/api/chat"
 
 // Log untuk debugging
 if (typeof window !== "undefined") {
@@ -71,9 +71,9 @@ export function ChatInterface() {
     setShouldAutoScroll(true)
 
     try {
-      console.log("Sending request to:", `${BACKEND_URL}/chat`)
+      console.log("Sending request to:", BACKEND_URL)
       
-      const response = await fetch(`${BACKEND_URL}/chat`, {
+      const response = await fetch(BACKEND_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -81,8 +81,8 @@ export function ChatInterface() {
         body: JSON.stringify({
           pertanyaan: userMessage.content,
           top_k: 5,
-          max_tokens: 800,
-          temperature: 0.7,
+          max_tokens: 400,
+          temperature: 0.5,
           include_context: false,
         }),
       })

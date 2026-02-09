@@ -103,8 +103,8 @@ class RAGPipeline:
         logger.info("[INFO] Loading LLM at startup...")
         self._ensure_llm_loaded()
         
-        # Prompt template
-        self.prompt_template = get_prompt_template(style="simple", language="id")
+        # Prompt template (llama3 style untuk output lebih baik)
+        self.prompt_template = get_prompt_template(style="llama3", language="id")
         
         # Auto-load existing index
         if auto_load_index:
@@ -229,28 +229,35 @@ class RAGPipeline:
         # 0. CEK WARMUP / GREETING (Fast Path)
         # Bypass retrieval untuk query pendek/sapaan agar tidak terjebak reranking context
         lower_q = question.lower().strip()
-        warmup_keywords = ["tes", "test", "halo", "hi", "pemanasan", "cek", "selamat", "pagi", "siang", "sore", "malam", "coba", "assalamualaikum", "ping"]
-        is_warmup = any(k in lower_q for k in warmup_keywords) and len(question.split()) < 5
+        warmup_keywords = [
+            "tes", "test", "halo", "hallo", "hello", "hi", "hey",
+            "pemanasan", "cek", "ping", "coba",
+            "selamat pagi", "selamat siang", "selamat sore", "selamat malam",
+            "assalamualaikum", "hai",
+            "apa yang bisa", "bisa bantu apa", "siapa kamu", "siapa anda",
+            "kamu siapa", "anda siapa", "apa fungsi", "apa tugas",
+            "bisa apa", "lakukan apa"
+        ]
+        is_warmup = any(k in lower_q for k in warmup_keywords) and len(question.split()) < 15
         
         if is_warmup:
              logger.info("[WARMUP] Detected warm-up query (Fast Path), bypassing retrieval...")
-             prompt = f"""Anda adalah Asisten Hukum AI yang sopan. 
-User menyapa atau melakukan tes. Jawablah dengan singkat, ramah, dan profesional.
-Nyatakan bahwa sistem "RAG Hukum Indonesia" aktif dan siap menganalisis dokumen.
-
-User: {question}
-Asisten:"""
-             try:
-                 answer = self.llm.generate(prompt, max_tokens=150, temperature=0.7)
-                 return RAGResponse(
-                    answer=answer,
-                    sources=[],
-                    context="",
-                    query=question,
-                    retrieval_results=[]
-                 )
-             except Exception as e:
-                 logger.error(f"Warmup generation failed: {e}")
+             # Gunakan jawaban statis yang natural agar tidak bergantung pada LLM
+             answer = (
+                 "Halo! Saya adalah Asisten Hukum AI untuk sistem RAG Hukum Indonesia. "
+                 "Saya dapat membantu Anda dalam:\n\n"
+                 "1. **Menganalisis putusan Mahkamah Agung** — menjelaskan pertimbangan hukum, ratio decidendi, dan konsekuensi yuridis.\n"
+                 "2. **Menjawab pertanyaan hukum** — berdasarkan dokumen-dokumen hukum yang telah diindeks dalam sistem.\n"
+                 "3. **Mencari referensi hukum** — menemukan pasal, undang-undang, atau yurisprudensi yang relevan.\n\n"
+                 "Silakan ajukan pertanyaan hukum Anda, dan saya akan memberikan jawaban berdasarkan dokumen yang tersedia."
+             )
+             return RAGResponse(
+                answer=answer,
+                sources=[],
+                context="",
+                query=question,
+                retrieval_results=[]
+             )
 
         # 1. Retrieve relevant documents
         logger.info("[1] Retrieving documents...")
@@ -342,7 +349,7 @@ Asisten:"""
         try:
             answer = self.llm.generate(
                 prompt,
-                max_tokens=max_tokens or 800,  # Naikkan dari 512 ke 800
+                max_tokens=max_tokens or 1024,
                 temperature=temperature
             )
             

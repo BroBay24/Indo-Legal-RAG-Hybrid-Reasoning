@@ -34,9 +34,10 @@ EMBEDDING_DIMENSION = 1024  # BGE-M3 dimension, sesuaikan jika ganti model
 
 # ==================== LLM SETTINGS ====================
 LLM_MODEL_PATH = str(MODELS_DIR / "llama-3-indo.gguf")
-LLM_CONTEXT_LENGTH = 2048  # Dikurangi dari 4096 untuk efisiensi CPU
+LLM_CONTEXT_LENGTH = 4096  # Dinaikkan karena VM 16 vCPU / 64GB
 LLM_GPU_LAYERS = 0  # CPU only
-LLM_MAX_TOKENS = 400  # Dikurangi dari 800 untuk respons lebih cepat
+LLM_N_THREADS = 12  # 12 dari 16 vCPU (sisakan 4 untuk embedding/reranker/OS)
+LLM_MAX_TOKENS = 1024  # Dinaikkan untuk jawaban lengkap (VM 16 vCPU)
 LLM_TEMPERATURE = 0.5
 LLM_TOP_P = 0.9
 
@@ -74,7 +75,7 @@ REMOVE_EXTRA_WHITESPACE = True
 NORMALIZE_PASAL = True  # Normalisasi format pasal/ayat
 
 # ==================== API SETTINGS ====================
-API_HOST = os.getenv("API_HOST", "0.0.0.0")
+API_HOST = os.getenv("API_HOST", "127.0.0.1")
 API_PORT = int(os.getenv("API_PORT", 8000))
 DEBUG_MODE = os.getenv("DEBUG_MODE", "True").lower() == "true"
 

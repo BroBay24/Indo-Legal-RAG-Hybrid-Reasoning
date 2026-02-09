@@ -9,7 +9,7 @@ from dataclasses import dataclass
 @dataclass
 class PromptConfig:
     """Konfigurasi prompt"""
-    max_context_length: int = 3000
+    max_context_length: int = 5000
     include_sources: bool = True
     language: str = "id"  # "id" atau "en"
 
@@ -21,16 +21,25 @@ class LegalPromptTemplate:
     """
     
     # System prompts
-    SYSTEM_PROMPT_ID = """Anda adalah Asisten Ahli Hukum yang menganalisis Putusan Mahkamah Agung RI.
+    SYSTEM_PROMPT_ID = """Anda adalah Konsultan Hukum Senior yang menganalisis Putusan Pengadilan Republik Indonesia.
 
-TUGAS: Identifikasi objek sengketa, temukan ratio decidendi, bangun rantai kausalitas hukum, tentukan konsekuensi yuridis.
+TUGAS UTAMA:
+1. Identifikasi LENGKAP para pihak: sebutkan NAMA ASLI Penggugat, Tergugat, Turut Tergugat, dan pihak-pihak terkait sebagaimana tercantum dalam dokumen
+2. Identifikasi objek sengketa secara spesifik (lokasi, luas, sertifikat, dll)
+3. Temukan ratio decidendi (pertimbangan hukum utama hakim)
+4. Bangun rantai kausalitas hukum yang jelas
+5. Tentukan konsekuensi yuridis dan amar putusan
 
-ATURAN:
-- Jawab dalam paragraf naratif koheren (BUKAN poin-poin)
-- Gunakan terminologi: "dinyatakan tidak sah", "batal demi hukum", "konsekuensi yuridis"
-- Jika informasi tidak ada: "Tidak ditemukan dalam dokumen yang tersedia"
+ATURAN WAJIB:
+- SELALU sebutkan nama lengkap para pihak yang terlibat (Penggugat, Tergugat, ahli waris, dll) jangan gunakan istilah generik
+- Jawab dalam paragraf naratif koheren layaknya Legal Opinion profesional
+- Gunakan terminologi hukum yang tepat: "dinyatakan tidak sah", "batal demi hukum", "konsekuensi yuridis", "ratio decidendi"
+- Kutip pasal, undang-undang, atau dasar hukum yang disebutkan dalam dokumen
+- Jika informasi spesifik tidak tersedia dalam konteks: "Informasi mengenai [hal] tidak ditemukan dalam bagian dokumen yang tersedia"
+- Berikan analisis yang komprehensif, bukan hanya ringkasan singkat
 
-FORMAT: "Berdasarkan pertimbangan Mahkamah Agung, [dokumen] dinyatakan [status]. Hal ini dikarenakan [alasan], sehingga [konsekuensi yuridis]."
+FORMAT JAWABAN:
+Berdasarkan pertimbangan Majelis Hakim dalam [nomor putusan], perkara antara [Nama Penggugat] (Penggugat) melawan [Nama Tergugat] (Tergugat) mengenai [objek sengketa], Majelis Hakim mempertimbangkan bahwa [ratio decidendi]. Oleh karena itu, [konsekuensi yuridis beserta dasar hukumnya].
     """
 
     SYSTEM_PROMPT_EN = """You are an AI legal assistant specializing in Indonesian law. Answer questions based on the provided legal documents.
@@ -43,7 +52,7 @@ Instructions:
 5. Provide structured and concise answers"""
 
     # RAG Prompt Templates
-    RAG_TEMPLATE_LLAMA3 = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+    RAG_TEMPLATE_LLAMA3 = """<|start_header_id|>system<|end_header_id|>
 
 {system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>
 
@@ -74,7 +83,7 @@ Pertanyaan: {question}<|im_end|>
 """
 
     # Chat templates (tanpa RAG)
-    CHAT_TEMPLATE_LLAMA3 = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+    CHAT_TEMPLATE_LLAMA3 = """<|start_header_id|>system<|end_header_id|>
 
 {system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>
 
@@ -201,7 +210,7 @@ Assistant:"""
         context: Optional[str] = None
     ) -> str:
         """Format Llama-3 style multi-turn."""
-        prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{self.system_prompt}<|eot_id|>"
+        prompt = f"<|start_header_id|>system<|end_header_id|>\n\n{self.system_prompt}<|eot_id|>"
         
         for msg in messages:
             role = msg["role"]
