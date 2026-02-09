@@ -33,10 +33,10 @@ Pipeline RAG ini bekerja dalam beberapa tahapan:
 -   **Orchestration**: LangChain (untuk text splitting dan utilities)
 
 ### Infrastruktur & Deployment
--   **Server**: Google Cloud Platform (VIrtual Machine)
+-   **Server**: Google Cloud Platform (Virtual Machine - e2-standard-32)
 -   **OS**: Linux (Ubuntu)
 -   **Process Manager**: PM2 (Production Process Management)
--   **Reverse Proxy**: Next.js Rewrite (Proxy ke Backend)
+-   **Reverse Proxy**: Nginx (Port 80 -> 3000)
 
 ---
 
@@ -166,7 +166,7 @@ Backend mengekspos endpoint dokumentasi interaktif yang disediakan oleh FastAPI.
         {
           "pertanyaan": "Bagaimana kedudukan ahli waris...",
           "top_k": 5,
-          "max_tokens": 1024,
+          "max_tokens": 2048,
           "temperature": 0.5
         }
         ```

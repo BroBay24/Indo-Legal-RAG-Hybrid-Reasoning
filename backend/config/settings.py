@@ -34,10 +34,11 @@ EMBEDDING_DIMENSION = 1024  # BGE-M3 dimension, sesuaikan jika ganti model
 
 # ==================== LLM SETTINGS ====================
 LLM_MODEL_PATH = str(MODELS_DIR / "llama-3-indo.gguf")
-LLM_CONTEXT_LENGTH = 4096  # Dinaikkan karena VM 16 vCPU / 64GB
+LLM_CONTEXT_LENGTH = 8192  # Dinaikkan karena VM 32 vCPU / 128GB (double context window)
 LLM_GPU_LAYERS = 0  # CPU only
-LLM_N_THREADS = 12  # 12 dari 16 vCPU (sisakan 4 untuk embedding/reranker/OS)
-LLM_MAX_TOKENS = 1024  # Dinaikkan untuk jawaban lengkap (VM 16 vCPU)
+LLM_N_THREADS = 24  # 24 dari 32 vCPU (sisakan 8 untuk embedding/reranker/Nginx/OS)
+LLM_N_BATCH = 1024  # Batch size untuk prompt processing (RAM 128GB cukup)
+LLM_MAX_TOKENS = 2048  # Jawaban lebih lengkap tanpa terpotong (VM 32 vCPU)
 LLM_TEMPERATURE = 0.5
 LLM_TOP_P = 0.9
 
@@ -46,8 +47,8 @@ HF_API_TOKEN = os.getenv("HF_API_TOKEN", "")
 HF_MODEL_ID = os.getenv("HF_MODEL_ID", "meta-llama/Llama-3.2-3B-Instruct")
 
 # ==================== CHUNKING SETTINGS ====================
-CHUNK_SIZE = 800  # Diperkecil dari 1000 ke 800 untuk presisi lebih baik
-CHUNK_OVERLAP = 150  # Dikurangi sedikit untuk efisiensi
+CHUNK_SIZE = 1000  # Dinaikkan kembali karena context window 8192 cukup besar
+CHUNK_OVERLAP = 200  # Overlap lebih besar untuk konteks hukum yang lebih koheren
 SEPARATORS = ["\n\n", "\n", ".", ";", ",", " ", ""]
 
 # ==================== RETRIEVER SETTINGS ====================

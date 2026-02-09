@@ -10,7 +10,9 @@ module.exports = {
         PORT: 8000,
         PYTHONUNBUFFERED: "1",
         HF_HUB_OFFLINE: "1",
-        TOKENIZERS_PARALLELISM: "false"
+        TOKENIZERS_PARALLELISM: "false",
+        OMP_NUM_THREADS: "24",
+        MKL_NUM_THREADS: "24"
       }
     },
     {

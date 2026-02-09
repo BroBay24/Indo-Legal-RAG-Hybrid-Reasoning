@@ -77,8 +77,8 @@ class ChatRequest(BaseModel):
     """Request untuk chat/query"""
     pertanyaan: str = Field(..., description="Pertanyaan user", min_length=1)
     top_k: Optional[int] = Field(5, description="Jumlah dokumen yang di-retrieve", ge=1, le=20)
-    max_tokens: Optional[int] = Field(512, description="Max tokens untuk jawaban", ge=50, le=2048)
-    temperature: Optional[float] = Field(0.7, description="Temperature LLM", ge=0, le=2)
+    max_tokens: Optional[int] = Field(2048, description="Max tokens untuk jawaban", ge=50, le=4096)
+    temperature: Optional[float] = Field(0.5, description="Temperature LLM", ge=0, le=2)
     include_context: Optional[bool] = Field(False, description="Sertakan context dalam response")
 
 

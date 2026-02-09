@@ -73,6 +73,7 @@ class LocalLLM(BaseLLM):
                 n_ctx=self.n_ctx,
                 n_gpu_layers=self.n_gpu_layers,
                 n_threads=self.n_threads,
+                n_batch=getattr(settings, 'LLM_N_BATCH', 512),
                 verbose=self.verbose
             )
             

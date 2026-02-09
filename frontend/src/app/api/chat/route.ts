@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const chatRequest: ChatRequest = {
       pertanyaan: userQuestion,
       top_k: 5,
-      max_tokens: 1024,
+      max_tokens: 2048,
       temperature: 0.5,
       include_context: false,
     };

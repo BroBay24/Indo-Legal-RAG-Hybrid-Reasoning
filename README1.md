@@ -19,23 +19,24 @@ Sistem ini menggunakan strategi **Hybrid Reciprocal Rank Fusion (RRF)** untuk me
     20 Kandidat teratas dari RRF dinilai ulang oleh model `BAAI/bge-reranker-v2-m3`. Model ini membaca *pairs* (Query, Dokumen) secara bersamaan untuk akurasi relevansi tertinggi.
 5.  **Context Selection**: 5 Dokumen terbaik (Top-5) diteruskan ke LLM.
 
-## 2. Optimasi Infrastruktur (GCP e2-standard-16)
+## 2. Optimasi Infrastruktur (GCP e2-standard-32)
 
-Sistem berjalan di VM Google Cloud `e2-standard-16` (16 vCPU, 64 GB RAM). Berikut konfigurasi spesifik untuk memaksimalkan hardware ini:
+Sistem berjalan di VM Google Cloud `e2-standard-32` (32 vCPU, 128 GB RAM). Berikut konfigurasi spesifik untuk memaksimalkan hardware ini:
 
 ### Alokasi Thread CPU
-menggunakan `llama-cpp-python` yang sangat sensitif terhadap manajemen thread. Konfigurasi optimal yang diterapkan:
--   **Total vCPU**: 16
--   **LLM Inference Threads (`n_threads`)**: 12
--   **System/Overhead Threads**: 4
+Kami menggunakan `llama-cpp-python` yang sangat sensitif terhadap manajemen thread. Konfigurasi optimal yang diterapkan:
+-   **Total vCPU**: 32
+-   **LLM Inference Threads (`n_threads`)**: 24
+-   **System/Overhead Threads**: 8
 
-**Alasan**: Memberikan seluruh 16 core ke LLM seringkali menyebabkan *context switching overhead* dan *thread contention* dengan OS atau proses chunking/embedding, yang justru menurunkan performa. Menyisakan 4 core memastikan stabilitas sistem.
+**Alasan**: Memberikan seluruh 32 core ke LLM seringkali menyebabkan *context switching overhead* dan *thread contention* dengan OS atau proses chunking/embedding, yang justru menurunkan performa. Menyisakan 8 core memastikan stabilitas sistem.
 
 ### Manajemen Memori & Model
 -   **Model**: `llama-3-indo-v1.gguf` (Quantized GGUF).
--   **Context Window (`n_ctx`)**: 4096 tokens.
--   **Batch Size**: 512.
--   **Offloading**: Sepenuhnya CPU (`n_gpu_layers=0`), memanfaatkan RAM 64GB yang melimpah.
+-   **Context Window (`n_ctx`)**: 8192 tokens (Ditingkatkan dari 4096).
+-   **Max Tokens Output**: 2048 tokens.
+-   **Batch Size**: 1024.
+-   **Offloading**: Sepenuhnya CPU (`n_gpu_layers=0`), memanfaatkan RAM 128GB yang melimpah.
 
 ## 3. Penanganan Masalah Produksi (Troubleshooting Log)
 
@@ -60,7 +61,7 @@ Berikut adalah ringkasan teknis dari isu-isu stabilitas yang telah diselesaikan:
 -   **Solusi**:
     1.  **Strict System Prompt**: Memaksa LLM menyebutkan "Nama Asli" pihak berperkara.
     2.  **Llama-3 Template**: Migrasi dari simple raw text ke template Llama-3 (`<|start_header_id|>...`) untuk memisahkan instruksi sistem dan konteks dokumen dengan lebih tegas.
-    3.  **Token Increase**: Menaikkan `max_tokens` ke 1024 agar analisis hukum yang kompleks tidak terpotong di tengah kalimat.
+    3.  **Token Increase**: Menaikkan `max_tokens` ke 2048 agar analisis hukum yang kompleks tidak terpotong di tengah kalimat.
 
 ## 4. Stack Komponen
 
