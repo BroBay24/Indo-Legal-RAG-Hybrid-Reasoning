@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import logging
 import json
+import numpy as np
 
 from config import settings
 from src.document_loader import DocumentLoader, LoadedDocument, load_documents
@@ -226,39 +227,6 @@ class RAGPipeline:
         # Ensure LLM is loaded
         self._ensure_llm_loaded()
         
-        # 0. CEK WARMUP / GREETING (Fast Path)
-        # Bypass retrieval untuk query pendek/sapaan agar tidak terjebak reranking context
-        lower_q = question.lower().strip()
-        warmup_keywords = [
-            "tes", "test", "halo", "hallo", "hello", "hi", "hey",
-            "pemanasan", "cek", "ping", "coba",
-            "selamat pagi", "selamat siang", "selamat sore", "selamat malam",
-            "assalamualaikum", "hai",
-            "apa yang bisa", "bisa bantu apa", "siapa kamu", "siapa anda",
-            "kamu siapa", "anda siapa", "apa fungsi", "apa tugas",
-            "bisa apa", "lakukan apa"
-        ]
-        is_warmup = any(k in lower_q for k in warmup_keywords) and len(question.split()) < 15
-        
-        if is_warmup:
-             logger.info("[WARMUP] Detected warm-up query (Fast Path), bypassing retrieval...")
-             # Gunakan jawaban statis yang natural agar tidak bergantung pada LLM
-             answer = (
-                 "Halo! Saya adalah Asisten Hukum AI untuk sistem RAG Hukum Indonesia. "
-                 "Saya dapat membantu Anda dalam:\n\n"
-                 "1. **Menganalisis putusan Mahkamah Agung** — menjelaskan pertimbangan hukum, ratio decidendi, dan konsekuensi yuridis.\n"
-                 "2. **Menjawab pertanyaan hukum** — berdasarkan dokumen-dokumen hukum yang telah diindeks dalam sistem.\n"
-                 "3. **Mencari referensi hukum** — menemukan pasal, undang-undang, atau yurisprudensi yang relevan.\n\n"
-                 "Silakan ajukan pertanyaan hukum Anda, dan saya akan memberikan jawaban berdasarkan dokumen yang tersedia."
-             )
-             return RAGResponse(
-                answer=answer,
-                sources=[],
-                context="",
-                query=question,
-                retrieval_results=[]
-             )
-
         # 1. Retrieve relevant documents
         logger.info("[1] Retrieving documents...")
         results = self.retriever.retrieve(question, top_k=top_k * 2) # Ambil 2x kandidat untuk rerank
@@ -280,43 +248,66 @@ class RAGPipeline:
             top_k=top_k
         )
         
-        # Log all rerank scores for debugging
-        if sorted_results:
-            logger.info("[DEBUG] Rerank scores:")
-            for idx, result in enumerate(sorted_results[:5]):
-                score = getattr(result, 'rerank_score', None)
-                if score is not None:
-                    logger.info(f"   [{idx+1}] Score: {score:.4f}")
-                else:
-                    logger.info(f"   [{idx+1}] Score: N/A")
-        
-        # Check relevance score - deteksi pertanyaan off-topic
-        # PENTING: Gunakan skor RERANKER (bukan skor retrieval mentah)
+        # ============================================================
+        # RELEVANCE THRESHOLDING (Cosine Similarity)
+        # Mekanisme deteksi off-topic berdasarkan ambang batas relevansi
+        # BUKAN keyword statis — menggunakan embedding similarity score
+        # ============================================================
         is_off_topic = False
+        max_similarity = 0.0
+        
         if sorted_results:
-            # Ambil rerank_score yang di-attach oleh reranker
-            top_score = getattr(sorted_results[0], 'rerank_score', None)
+            # Hitung cosine similarity antara query dan top retrieved chunks
+            query_embedding = self.embedding_model.embed_query(question)
             
-            # Jika tidak ada rerank_score, skip deteksi off-topic
-            if top_score is not None:
-                # Threshold untuk CrossEncoder: < -7 = sangat tidak relevan
-                # CrossEncoder bge-reranker menghasilkan skor dari -inf sampai +inf
-                # Relaksasi threshold dari -5.0 ke -7.0 untuk kurangi false positive
-                if top_score < -7.0:
+            # Ambil teks dari top-3 chunks untuk dihitung similarity-nya
+            top_chunk_texts = []
+            for r in sorted_results[:3]:
+                if hasattr(r, 'chunk') and hasattr(r.chunk, 'content'):
+                    top_chunk_texts.append(r.chunk.content)
+                elif hasattr(r, 'content'):
+                    top_chunk_texts.append(r.content)
+            
+            if top_chunk_texts:
+                chunk_embeddings = self.embedding_model.embed_texts(top_chunk_texts)
+                # Cosine similarity (embedding sudah dinormalisasi oleh BGE-M3)
+                similarities = np.dot(chunk_embeddings, query_embedding)
+                max_similarity = float(np.max(similarities))
+                
+                threshold = getattr(settings, 'RELEVANCE_THRESHOLD', 0.70)
+                logger.info(f"[RELEVANCE] Cosine similarity scores: {[f'{s:.4f}' for s in similarities]}")
+                logger.info(f"[RELEVANCE] Max similarity: {max_similarity:.4f} | Threshold: {threshold}")
+                
+                if max_similarity < threshold:
                     is_off_topic = True
-                    logger.warning(f"[OFF-TOPIC] Top rerank score ({top_score:.3f}) below threshold -7.0")
+                    logger.warning(f"[OFF-TOPIC] Max similarity {max_similarity:.4f} < threshold {threshold}")
                 else:
-                    logger.info(f"[OK] Top rerank score: {top_score:.3f} (above threshold)")
+                    logger.info(f"[ON-TOPIC] Query relevan dengan dokumen (score: {max_similarity:.4f})")
         
         # 2. Build context
-        # Jika off-topic, kosongkan context DAN sources
+        # Jika off-topic, kembalikan pesan error handling langsung
         if is_off_topic:
-            context = ""
-            sources = []
-            logger.warning("[OFF-TOPIC] Context and sources cleared due to low relevance")
-        else:
-            context = self.retriever.get_context_string(sorted_results)
-            sources = self.retriever.get_sources(sorted_results)
+            logger.warning("[OFF-TOPIC] Returning error handling response")
+            return RAGResponse(
+                answer=(
+                    "Maaf, pertanyaan Anda tampaknya di luar cakupan dokumen hukum yang tersedia dalam sistem ini. "
+                    f"(Skor relevansi: {max_similarity:.2f}, minimum: {getattr(settings, 'RELEVANCE_THRESHOLD', 0.70)})\n\n"
+                    "Saya adalah Asisten Hukum AI yang menganalisis **Putusan Pengadilan** yang telah diindeks. "
+                    "Silakan ajukan pertanyaan yang berkaitan dengan:\n"
+                    "- Pertimbangan hukum (ratio decidendi) dalam putusan\n"
+                    "- Pihak-pihak yang berperkara (Penggugat/Tergugat)\n"
+                    "- Objek sengketa dan amar putusan\n"
+                    "- Dasar hukum dan pasal yang dirujuk\n\n"
+                    "Contoh: *\"Siapa penggugat dalam Putusan Nomor 690/Pdt.G/2024?\"*"
+                ),
+                sources=[],
+                context="",
+                query=question,
+                retrieval_results=results
+            )
+        
+        context = self.retriever.get_context_string(sorted_results)
+        sources = self.retriever.get_sources(sorted_results)
         
         # Truncate context if too long (max 6000 chars for better coverage)
         if len(context) > 6000:

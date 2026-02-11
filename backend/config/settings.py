@@ -69,6 +69,12 @@ LEXICAL_WEIGHT = 0.4
 # Final top-k setelah fusion
 FINAL_TOP_K = 5
 
+# ==================== RELEVANCE THRESHOLDING ====================
+# Cosine Similarity threshold untuk deteksi off-topic
+# Jika skor tertinggi < threshold, query dianggap tidak relevan dengan dokumen hukum
+# Range: 0.0 (tidak mirip) - 1.0 (identik)
+RELEVANCE_THRESHOLD = 0.70
+
 # ==================== PREPROCESSING SETTINGS ====================
 # Normalisasi teks hukum
 NORMALIZE_UNICODE = True
