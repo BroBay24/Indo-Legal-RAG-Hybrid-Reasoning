@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import logging
 import json
-import numpy as np
+
 
 from config import settings
 from src.document_loader import DocumentLoader, LoadedDocument, load_documents
@@ -249,40 +249,36 @@ class RAGPipeline:
         )
         
         # ============================================================
-        # RELEVANCE THRESHOLDING (Cosine Similarity)
-        # Mekanisme deteksi off-topic berdasarkan ambang batas relevansi
-        # BUKAN keyword statis — menggunakan embedding similarity score
+        # RELEVANCE THRESHOLDING (Reranker Score / Cross-Encoder)
+        # Mekanisme deteksi off-topic berdasarkan skor reranker
+        # Cross-Encoder BGE-reranker-v2-m3 lebih diskriminatif daripada cosine similarity
+        # Relevant queries: 0.88-0.97 | Off-topic: <0.30
         # ============================================================
         is_off_topic = False
-        max_similarity = 0.0
+        top_reranker_score = 0.0
         
         if sorted_results:
-            # Hitung cosine similarity antara query dan top retrieved chunks
-            query_embedding = self.embedding_model.embed_query(question)
+            threshold = getattr(settings, 'RELEVANCE_THRESHOLD', 0.45)
             
-            # Ambil teks dari top-3 chunks untuk dihitung similarity-nya
-            top_chunk_texts = []
+            # Ambil reranker score dari hasil reranking (sudah di-attach oleh reranker.py)
+            reranker_scores = []
             for r in sorted_results[:3]:
-                if hasattr(r, 'chunk') and hasattr(r.chunk, 'content'):
-                    top_chunk_texts.append(r.chunk.content)
-                elif hasattr(r, 'content'):
-                    top_chunk_texts.append(r.content)
+                score = getattr(r, 'rerank_score', None)
+                if score is not None:
+                    reranker_scores.append(float(score))
             
-            if top_chunk_texts:
-                chunk_embeddings = self.embedding_model.embed_texts(top_chunk_texts)
-                # Cosine similarity (embedding sudah dinormalisasi oleh BGE-M3)
-                similarities = np.dot(chunk_embeddings, query_embedding)
-                max_similarity = float(np.max(similarities))
+            if reranker_scores:
+                top_reranker_score = max(reranker_scores)
+                logger.info(f"[RELEVANCE] Reranker scores (top-3): {[f'{s:.4f}' for s in reranker_scores]}")
+                logger.info(f"[RELEVANCE] Top reranker score: {top_reranker_score:.4f} | Threshold: {threshold}")
                 
-                threshold = getattr(settings, 'RELEVANCE_THRESHOLD', 0.70)
-                logger.info(f"[RELEVANCE] Cosine similarity scores: {[f'{s:.4f}' for s in similarities]}")
-                logger.info(f"[RELEVANCE] Max similarity: {max_similarity:.4f} | Threshold: {threshold}")
-                
-                if max_similarity < threshold:
+                if top_reranker_score < threshold:
                     is_off_topic = True
-                    logger.warning(f"[OFF-TOPIC] Max similarity {max_similarity:.4f} < threshold {threshold}")
+                    logger.warning(f"[OFF-TOPIC] Top reranker score {top_reranker_score:.4f} < threshold {threshold}")
                 else:
-                    logger.info(f"[ON-TOPIC] Query relevan dengan dokumen (score: {max_similarity:.4f})")
+                    logger.info(f"[ON-TOPIC] Query relevan dengan dokumen (reranker score: {top_reranker_score:.4f})")
+            else:
+                logger.warning("[RELEVANCE] No reranker scores found on results, skipping threshold check")
         
         # 2. Build context
         # Jika off-topic, kembalikan pesan error handling langsung
@@ -291,7 +287,7 @@ class RAGPipeline:
             return RAGResponse(
                 answer=(
                     "Maaf, pertanyaan Anda tampaknya di luar cakupan dokumen hukum yang tersedia dalam sistem ini. "
-                    f"(Skor relevansi: {max_similarity:.2f}, minimum: {getattr(settings, 'RELEVANCE_THRESHOLD', 0.70)})\n\n"
+                    f"(Skor relevansi: {top_reranker_score:.2f}, minimum: {getattr(settings, 'RELEVANCE_THRESHOLD', 0.45)})\n\n"
                     "Saya adalah Asisten Hukum AI yang menganalisis **Putusan Pengadilan** yang telah diindeks. "
                     "Silakan ajukan pertanyaan yang berkaitan dengan:\n"
                     "- Pertimbangan hukum (ratio decidendi) dalam putusan\n"

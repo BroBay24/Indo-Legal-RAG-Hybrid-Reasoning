@@ -70,10 +70,10 @@ LEXICAL_WEIGHT = 0.4
 FINAL_TOP_K = 5
 
 # ==================== RELEVANCE THRESHOLDING ====================
-# Cosine Similarity threshold untuk deteksi off-topic
-# Jika skor tertinggi < threshold, query dianggap tidak relevan dengan dokumen hukum
-# Range: 0.0 (tidak mirip) - 1.0 (identik)
-RELEVANCE_THRESHOLD = 0.70
+# Reranker Score (Cross-Encoder) threshold untuk deteksi off-topic
+# BGE-reranker-v2-m3: relevant queries = 0.88-0.97, off-topic = <0.30
+# Threshold 0.45 memberikan margin aman untuk query yang sedikit ambigu
+RELEVANCE_THRESHOLD = 0.45
 
 # ==================== PREPROCESSING SETTINGS ====================
 # Normalisasi teks hukum
